@@ -66,16 +66,24 @@ else()
     if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../error/CMakeLists.txt")
       message(STATUS "[io] Adding error from umbrella: ../error")
       add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../error" "error")
-    elseif (VIX_IO_FETCH_ERROR)
-      include(FetchContent)
-      message(STATUS "[io] Fetching vix::error via FetchContent")
-      FetchContent_Declare(vix_error
-        GIT_REPOSITORY https://github.com/vixcpp/error.git
-        GIT_TAG        v0.1.0
-      )
-      FetchContent_MakeAvailable(vix_error)
     else()
-      message(FATAL_ERROR "vix::error not found. Enable VIX_IO_FETCH_ERROR=ON or provide the target before io.")
+      find_package(vix_error CONFIG QUIET)
+    endif()
+
+    if (NOT TARGET vix::error)
+      if (VIX_IO_FETCH_ERROR)
+        include(FetchContent)
+        message(STATUS "[io] Fetching vix::error via FetchContent")
+        FetchContent_Declare(vix_error
+          GIT_REPOSITORY https://github.com/vixcpp/error.git
+          GIT_TAG        v0.1.0
+        )
+        FetchContent_MakeAvailable(vix_error)
+      else()
+        message(FATAL_ERROR
+          "vix::error not found. Enable VIX_IO_FETCH_ERROR=ON, install vix_error, or provide the target before io."
+        )
+      endif()
     endif()
   endif()
 endif()

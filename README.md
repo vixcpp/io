@@ -10,8 +10,6 @@ It is designed to be:
 - consistent
 - familiar for developers coming from Node.js, Deno, or Bun
 
----
-
 ## Philosophy
 
 I/O in Vix follows strict principles:
@@ -24,8 +22,6 @@ I/O in Vix follows strict principles:
 
 The goal is to bring a **modern developer experience to C++ I/O**.
 
----
-
 ## Install
 
 Using Vix:
@@ -33,8 +29,6 @@ Using Vix:
 ```bash
 vix add @vix/io
 ```
-
----
 
 ## Quick Start
 
@@ -49,8 +43,6 @@ int main()
 }
 ```
 
----
-
 ## Standard Streams
 
 ```cpp
@@ -58,8 +50,6 @@ auto in  = vix::io::stdin_stream();
 auto out = vix::io::stdout_stream();
 auto err = vix::io::stderr_stream();
 ```
-
----
 
 ## Reading
 
@@ -74,8 +64,6 @@ if (line)
 }
 ```
 
----
-
 ### Read all input
 
 ```cpp
@@ -87,15 +75,11 @@ if (data)
 }
 ```
 
----
-
 ### Read bytes
 
 ```cpp
 auto chunk = vix::io::read(in, 1024);
 ```
-
----
 
 ## Writing
 
@@ -106,8 +90,6 @@ vix::io::write(out, "Hello");
 vix::io::write_line(out, " world");
 ```
 
----
-
 ### Write bytes
 
 ```cpp
@@ -115,15 +97,11 @@ vix::io::Bytes bytes{65, 66, 67};
 vix::io::write(out, bytes);
 ```
 
----
-
 ### Flush
 
 ```cpp
 vix::io::flush(out);
 ```
-
----
 
 ## Copy Streams
 
@@ -136,8 +114,6 @@ if (!result)
 }
 ```
 
----
-
 ## Buffer
 
 ```cpp
@@ -148,8 +124,6 @@ buffer.append("Buffer");
 
 vix::io::write_line(out, buffer.to_string());
 ```
-
----
 
 ## Options
 
@@ -165,8 +139,6 @@ Used in:
 - write_line()
 - copy()
 
----
-
 ## Error Handling
 
 All operations return a `Result<T>`.
@@ -181,8 +153,6 @@ if (!result)
 }
 ```
 
----
-
 ## Types
 
 ### Bytes
@@ -191,16 +161,12 @@ if (!result)
 using Bytes = std::vector<std::uint8_t>;
 ```
 
----
-
 ### Buffer
 
 ```cpp
 vix::io::Buffer buffer;
 buffer.append("data");
 ```
-
----
 
 ## Examples
 
@@ -214,8 +180,6 @@ See the `examples/` directory:
 - copy_stream.cpp
 - advanced.cpp
 
----
-
 ## Design Notes
 
 - `io` is stream-oriented
@@ -223,8 +187,6 @@ See the `examples/` directory:
 - `io` handles streams (stdin, stdout, buffers)
 - no exceptions required
 - simple and composable API
-
----
 
 ## Why Vix IO?
 
@@ -240,8 +202,6 @@ Vix IO provides:
 - predictable behavior
 - structured errors
 - modern developer experience
-
----
 
 ## License
 
