@@ -1,0 +1,26 @@
+/**
+ *
+ *  @file Flush.cpp
+ *  @author Gaspard Kirira
+ *
+ *  Copyright 2025, Gaspard Kirira.
+ *  All rights reserved.
+ *  https://github.com/vixcpp/vix
+ *
+ *  Use of this source code is governed by a MIT license
+ *  that can be found in the License file.
+ *
+ *  Vix.cpp
+ */
+
+#include <vix/io/Flush.hpp>
+
+namespace vix::io
+{
+
+  IoBoolResult flush(Output &output)
+  {
+    return output.flush();
+  }
+
+} // namespace vix::io

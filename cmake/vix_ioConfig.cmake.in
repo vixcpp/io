@@ -1,0 +1,9 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_dependency(vix_error)
+
+include("${CMAKE_CURRENT_LIST_DIR}/VixTargets.cmake")
+
+check_required_components(vix_io)
