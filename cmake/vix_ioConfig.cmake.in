@@ -4,6 +4,6 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(vix_error CONFIG REQUIRED)
 
-include("${CMAKE_CURRENT_LIST_DIR}/VixTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/vix_ioTargets.cmake")
 
 check_required_components(vix_io)
