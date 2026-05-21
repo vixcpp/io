@@ -193,13 +193,13 @@ if (IO_SOURCES)
   endif()
 
   if (VIX_ENABLE_SANITIZERS AND NOT MSVC)
-    target_compile_options(vix_io PRIVATE
-      -fno-omit-frame-pointer
-      -fsanitize=address,undefined
+    target_compile_options(vix_io PUBLIC
+      $<BUILD_INTERFACE:-fno-omit-frame-pointer>
+      $<BUILD_INTERFACE:-fsanitize=address,undefined>
     )
 
-    target_link_options(vix_io PRIVATE
-      -fsanitize=address,undefined
+    target_link_options(vix_io PUBLIC
+      $<BUILD_INTERFACE:-fsanitize=address,undefined>
     )
   endif()
 
