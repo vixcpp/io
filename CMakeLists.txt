@@ -1,8 +1,10 @@
 #  @file CMakeLists.txt
 #  @author Gaspard Kirira
 #
-#  Copyright 2025, Gaspard Kirira. All rights reserved.
+#  Copyright 2025, Gaspard Kirira.
+#  All rights reserved.
 #  https://github.com/vixcpp/vix
+#
 #  Use of this source code is governed by a MIT license
 #  that can be found in the License file.
 #
@@ -11,14 +13,17 @@
 # ====================================================================
 # Purpose:
 #   Simple, modern, and cross-platform I/O utilities for Vix.
-#   Provides developer-friendly APIs for reading, writing, buffers,
-#   and standard input/output streams.
 #
-#   Builds as STATIC when sources exist, otherwise as a header-only
-#   INTERFACE target.
+#   This module owns lightweight developer-facing APIs:
+#     - vix/io/*
+#     - vix/print.hpp
+#     - vix/format.hpp
+#     - vix/inspect.hpp
+#     - vix/input.hpp
+#     - vix/console.hpp
 #
 # Public Targets:
-#   - vix_io  : The actual library target (STATIC or INTERFACE)
+#   - vix_io  : The actual library target
 #   - vix::io : Namespaced alias for consumers
 #
 # Public Dependencies:
@@ -30,7 +35,11 @@
 # ====================================================================
 
 cmake_minimum_required(VERSION 3.20)
-project(vix_io VERSION 0.1.0 LANGUAGES CXX)
+
+project(vix_io
+  VERSION 0.1.0
+  LANGUAGES CXX
+)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -52,10 +61,18 @@ else()
 endif()
 
 # --------------------------------------------------------------------
-# Umbrella build policy:
-# When building inside the Vix umbrella, dependencies are managed by the
-# umbrella (add_subdirectory order + options). Io must not FetchContent
-# nor add sibling subdirectories in umbrella mode.
+# Options
+# --------------------------------------------------------------------
+option(VIX_IO_FETCH_ERROR "Auto-fetch vix::error if missing" ON)
+option(VIX_IO_BUILD_TESTS "Build io module tests" OFF)
+
+# Tracks whether standalone io used local sibling dependencies.
+# If yes, we skip standalone package export because local sibling targets
+# are not part of vix_ioTargets.
+set(VIX_IO_HAS_LOCAL_DEPENDENCIES OFF)
+
+# --------------------------------------------------------------------
+# Umbrella build policy
 # --------------------------------------------------------------------
 if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
   set(VIX_IO_FETCH_ERROR OFF CACHE BOOL "Auto-fetch vix::error if missing" FORCE)
@@ -69,40 +86,78 @@ file(GLOB_RECURSE IO_SOURCES CONFIGURE_DEPENDS
 )
 
 # --------------------------------------------------------------------
-# Error dependency
+# Dependency resolver
 # --------------------------------------------------------------------
-option(VIX_IO_FETCH_ERROR "Auto-fetch vix::error if missing" ON)
-
-if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
-  if (NOT TARGET vix::error)
-    message(FATAL_ERROR "[io] Umbrella build: vix::error must be provided by umbrella before io.")
-  endif()
-else()
-  if (NOT TARGET vix::error)
-    if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/../error/CMakeLists.txt")
-      message(STATUS "[io] Adding error from sibling: ../error")
-      add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../error" "error")
-    else()
-      find_package(vix_error CONFIG QUIET)
+function(vix_io_resolve_dependency module_name target_name package_name fetch_option git_url git_tag)
+  if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
+    if (NOT TARGET ${target_name})
+      message(FATAL_ERROR "[io] Umbrella build: ${target_name} must be provided before io.")
     endif()
 
-    if (NOT TARGET vix::error)
-      if (VIX_IO_FETCH_ERROR)
-        include(FetchContent)
-        message(STATUS "[io] Fetching vix::error via FetchContent")
-        FetchContent_Declare(vix_error
-          GIT_REPOSITORY https://github.com/vixcpp/error.git
-          GIT_TAG        v0.1.0
-        )
-        FetchContent_MakeAvailable(vix_error)
-      else()
-        message(FATAL_ERROR
-          "vix::error not found. Enable VIX_IO_FETCH_ERROR=ON, install vix_error, or provide the target before io."
-        )
-      endif()
-    endif()
+    return()
   endif()
-endif()
+
+  if (TARGET ${target_name})
+    return()
+  endif()
+
+  find_package(${package_name} CONFIG QUIET)
+
+  if (TARGET ${target_name})
+    return()
+  endif()
+
+  get_filename_component(_VIX_MODULES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/.." ABSOLUTE)
+  set(_VIX_DEP_DIR "${_VIX_MODULES_DIR}/${module_name}")
+
+  if (EXISTS "${_VIX_DEP_DIR}/CMakeLists.txt")
+    message(STATUS "[io] Adding local sibling ${module_name}: ${_VIX_DEP_DIR}")
+    set(VIX_IO_HAS_LOCAL_DEPENDENCIES ON PARENT_SCOPE)
+    add_subdirectory("${_VIX_DEP_DIR}" "${CMAKE_BINARY_DIR}/_vix_${module_name}")
+  endif()
+
+  if (TARGET ${target_name})
+    return()
+  endif()
+
+  if (${fetch_option})
+    include(FetchContent)
+
+    message(STATUS "[io] Fetching ${target_name} via FetchContent")
+
+    FetchContent_Declare(${package_name}
+      GIT_REPOSITORY ${git_url}
+      GIT_TAG        ${git_tag}
+    )
+
+    FetchContent_MakeAvailable(${package_name})
+  else()
+    message(FATAL_ERROR
+      "${target_name} not found.\n"
+      "Expected one of:\n"
+      "  - existing target: ${target_name}\n"
+      "  - installed package: find_package(${package_name} CONFIG)\n"
+      "  - local sibling module: ../${module_name}\n"
+      "  - FetchContent enabled through ${fetch_option}=ON\n"
+    )
+  endif()
+
+  if (NOT TARGET ${target_name})
+    message(FATAL_ERROR "[io] ${target_name} not found after dependency resolution.")
+  endif()
+endfunction()
+
+# --------------------------------------------------------------------
+# Required dependencies
+# --------------------------------------------------------------------
+vix_io_resolve_dependency(
+  error
+  vix::error
+  vix_error
+  VIX_IO_FETCH_ERROR
+  https://github.com/vixcpp/error.git
+  v0.1.0
+)
 
 set(VIX_ERROR_TARGET vix::error)
 
@@ -124,11 +179,15 @@ if (IO_SOURCES)
   )
 
   target_link_libraries(vix_io
-    PUBLIC
-      ${VIX_ERROR_TARGET}
+    PRIVATE
+      $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
   )
 
-  # Build-only helpers must not leak into exported interfaces.
+  target_link_libraries(vix_io
+    INTERFACE
+      $<INSTALL_INTERFACE:vix::error>
+  )
+
   if (NOT MSVC)
     target_compile_options(vix_io PRIVATE
       -Wall
@@ -142,6 +201,7 @@ if (IO_SOURCES)
       -fno-omit-frame-pointer
       -fsanitize=address,undefined
     )
+
     target_link_options(vix_io PRIVATE
       -fsanitize=address,undefined
     )
@@ -163,7 +223,7 @@ if (IO_SOURCES)
   )
 
 else()
-  message(STATUS "[io] Building HEADER-ONLY library (no sources).")
+  message(STATUS "[io] Building HEADER-ONLY library with no sources.")
 
   add_library(vix_io INTERFACE)
   add_library(vix::io ALIAS vix_io)
@@ -175,8 +235,10 @@ else()
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   )
 
-  target_link_libraries(vix_io INTERFACE
-    ${VIX_ERROR_TARGET}
+  target_link_libraries(vix_io
+    INTERFACE
+      $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
+      $<INSTALL_INTERFACE:vix::error>
   )
 
   install(TARGETS vix_io
@@ -194,50 +256,56 @@ if (NOT (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD))
     FILES_MATCHING
       PATTERN "*.hpp"
       PATTERN "*.h"
+      PATTERN "*.inc"
   )
 endif()
 
 # --------------------------------------------------------------------
 # Standalone package config/export
-# Only for non-umbrella builds
 # --------------------------------------------------------------------
 if (NOT (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD))
+  if (VIX_IO_HAS_LOCAL_DEPENDENCIES)
+    message(STATUS "[io] Local sibling dependencies detected; skipping standalone package export.")
+    message(STATUS "[io] Installable package export requires installed dependency packages.")
+  else()
+    configure_package_config_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vix_ioConfig.cmake.in"
+      "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfig.cmake"
+      INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
+    )
 
-  configure_package_config_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/vix_ioConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfig.cmake"
-    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
-  )
+    write_basic_package_version_file(
+      "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfigVersion.cmake"
+      VERSION ${PROJECT_VERSION}
+      COMPATIBILITY SameMajorVersion
+    )
 
-  write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-  )
+    install(FILES
+      "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfig.cmake"
+      "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfigVersion.cmake"
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
+    )
 
-  install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/vix_ioConfigVersion.cmake"
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
-  )
-
-  install(EXPORT vix_ioTargets
-    FILE vix_ioTargets.cmake
-    NAMESPACE vix::
-    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
-  )
-
+    install(EXPORT vix_ioTargets
+      FILE vix_ioTargets.cmake
+      NAMESPACE vix::
+      DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/vix_io"
+    )
+  endif()
 endif()
 
 # --------------------------------------------------------------------
 # Tests
 # --------------------------------------------------------------------
-option(VIX_IO_BUILD_TESTS "Build io module tests" OFF)
-
 if (VIX_IO_BUILD_TESTS)
   include(CTest)
   enable_testing()
-  add_subdirectory(test)
+
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test/CMakeLists.txt")
+    add_subdirectory(test)
+  else()
+    message(WARNING "[io/tests] VIX_IO_BUILD_TESTS=ON but test/CMakeLists.txt not found, skipping.")
+  endif()
 endif()
 
 # --------------------------------------------------------------------
@@ -245,13 +313,24 @@ endif()
 # --------------------------------------------------------------------
 message(STATUS "------------------------------------------------------")
 message(STATUS "vix::io configured (${PROJECT_VERSION})")
+
 if (IO_SOURCES)
   message(STATUS "Mode: STATIC / sources found")
 else()
   message(STATUS "Mode: HEADER-ONLY / no sources")
 endif()
-message(STATUS "Export set: ${VIX_IO_EXPORT_SET}")
-message(STATUS "Error target: ${VIX_ERROR_TARGET}")
-message(STATUS "Include dir: ${CMAKE_CURRENT_SOURCE_DIR}/include (for <vix/io/...>)")
-message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+
+message(STATUS "Export set:         ${VIX_IO_EXPORT_SET}")
+message(STATUS "Error target:       ${VIX_ERROR_TARGET}")
+message(STATUS "Local deps:         ${VIX_IO_HAS_LOCAL_DEPENDENCIES}")
+message(STATUS "Tests:              ${VIX_IO_BUILD_TESTS}")
+message(STATUS "Include dir:        ${CMAKE_CURRENT_SOURCE_DIR}/include")
+message(STATUS "Public headers:")
+message(STATUS "  - <vix/io/...>")
+message(STATUS "  - <vix/print.hpp>")
+message(STATUS "  - <vix/format.hpp>")
+message(STATUS "  - <vix/inspect.hpp>")
+message(STATUS "  - <vix/input.hpp>")
+message(STATUS "  - <vix/console.hpp>")
+message(STATUS "Build type:         ${CMAKE_BUILD_TYPE}")
 message(STATUS "------------------------------------------------------")
