@@ -2,7 +2,11 @@ name: Io Strict CI
 
 on:
   push:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      - release/**
     paths:
       - ".github/workflows/io-strict-ci.yml"
       - "CMakeLists.txt"
@@ -13,8 +17,13 @@ on:
       - "README.md"
       - "CHANGELOG.md"
       - "vix.json"
+
   pull_request:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      - release/**
     paths:
       - ".github/workflows/io-strict-ci.yml"
       - "CMakeLists.txt"
@@ -25,25 +34,13 @@ on:
       - "README.md"
       - "CHANGELOG.md"
       - "vix.json"
+
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  DEPS: >
-    build-essential
-    cmake
-    ninja-build
-    clang
-    llvm
-    lld
-    g++
-    cppcheck
-    clang-tidy
-    valgrind
-    pkg-config
-    git
   BUILD_JOBS: 2
   VIX_GIT_BRANCH: dev
 
@@ -51,10 +48,13 @@ jobs:
   build-test-sanitized:
     name: Sanitized Build and Tests (${{ matrix.compiler }})
     runs-on: ubuntu-latest
+
     strategy:
       fail-fast: false
       matrix:
-        compiler: [clang, gcc]
+        compiler:
+          - gcc
+          - clang
 
     steps:
       - name: Checkout io repository
@@ -62,19 +62,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            clang \
+            g++ \
+            cppcheck \
+            clang-tidy \
+            valgrind \
+            pkg-config \
+            git \
+            curl \
+            ca-certificates
+
       - name: Fetch sibling dependency
         run: |
+          set -euxo pipefail
+
           rm -rf ../error
           git clone --depth 1 --branch "${VIX_GIT_BRANCH}" https://github.com/vixcpp/error.git ../error
 
       - name: Verify required sibling dependency
         run: |
-          test -f ../error/CMakeLists.txt || (echo "::error::../error/CMakeLists.txt is missing"; exit 1)
+          set -euxo pipefail
 
-      - name: Install dependencies
+          test -f ../error/CMakeLists.txt
+          test -f ../error/include/vix/error/Result.hpp
+
+      - name: Export dependency include paths
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y $DEPS
+          EXTRA_PATHS="$GITHUB_WORKSPACE/../error/include"
+
+          echo "CPATH=$EXTRA_PATHS${CPATH:+:$CPATH}" >> "$GITHUB_ENV"
+          echo "CPLUS_INCLUDE_PATH=$EXTRA_PATHS${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}" >> "$GITHUB_ENV"
 
       - name: Select compiler
         run: |
@@ -88,7 +112,7 @@ jobs:
 
       - name: Configure
         run: |
-          cmake -G Ninja -S . -B build-sanitize \
+          cmake -S . -B build-sanitize -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DVIX_IO_BUILD_TESTS=ON \
@@ -101,20 +125,12 @@ jobs:
 
       - name: Print executables
         run: |
-          echo "---- executables ----"
           find build-sanitize -type f -executable | sort || true
 
       - name: Run ctest
         run: |
-          set -e
           cd build-sanitize
-          if ctest --output-on-failure --timeout 90; then
-            echo "All discovered tests passed."
-          else
-            echo "::warning::Some tests failed or no tests were discovered."
-            test -f Testing/Temporary/LastTest.log && cat Testing/Temporary/LastTest.log || true
-            exit 0
-          fi
+          ctest --output-on-failure --timeout 90
 
   static-analysis:
     name: Static Analysis
@@ -126,42 +142,59 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            clang \
+            g++ \
+            cppcheck \
+            clang-tidy \
+            pkg-config \
+            git \
+            curl \
+            ca-certificates
+
       - name: Fetch sibling dependency
         run: |
+          set -euxo pipefail
+
           rm -rf ../error
           git clone --depth 1 --branch "${VIX_GIT_BRANCH}" https://github.com/vixcpp/error.git ../error
 
       - name: Verify required sibling dependency
         run: |
-          test -f ../error/CMakeLists.txt || (echo "::error::../error/CMakeLists.txt is missing"; exit 1)
+          set -euxo pipefail
 
-      - name: Install dependencies
+          test -f ../error/CMakeLists.txt
+          test -f ../error/include/vix/error/Result.hpp
+
+      - name: Export dependency include paths
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y $DEPS
+          EXTRA_PATHS="$GITHUB_WORKSPACE/../error/include"
+
+          echo "CPATH=$EXTRA_PATHS${CPATH:+:$CPATH}" >> "$GITHUB_ENV"
+          echo "CPLUS_INCLUDE_PATH=$EXTRA_PATHS${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}" >> "$GITHUB_ENV"
 
       - name: Configure for analysis
         run: |
-          cmake -G Ninja -S . -B build-analyze \
+          cmake -S . -B build-analyze -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DVIX_IO_BUILD_TESTS=ON \
             -DVIX_ENABLE_SANITIZERS=OFF \
             -DVIX_IO_FETCH_ERROR=OFF
 
-      - name: Run clang-tidy on source files
+      - name: Run clang-tidy
         run: |
           set +e
           find src test -name '*.cpp' -print0 | xargs -0 -r -n1 -P2 clang-tidy -p build-analyze
-          STATUS=$?
-          if [ $STATUS -ne 0 ]; then
-            echo "::warning::clang-tidy reported issues."
-          else
-            echo "clang-tidy completed successfully."
-          fi
           exit 0
 
-      - name: Run cppcheck on headers and sources
+      - name: Run cppcheck
         run: |
           set +e
           cppcheck \
@@ -171,12 +204,6 @@ jobs:
             --quiet \
             --suppress=missingIncludeSystem \
             include/ src/ test/
-          STATUS=$?
-          if [ $STATUS -ne 0 ]; then
-            echo "::warning::cppcheck reported issues."
-          else
-            echo "cppcheck completed successfully."
-          fi
           exit 0
 
   valgrind:
@@ -190,23 +217,44 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            g++ \
+            valgrind \
+            pkg-config \
+            git \
+            curl \
+            ca-certificates
+
       - name: Fetch sibling dependency
         run: |
+          set -euxo pipefail
+
           rm -rf ../error
           git clone --depth 1 --branch "${VIX_GIT_BRANCH}" https://github.com/vixcpp/error.git ../error
 
       - name: Verify required sibling dependency
         run: |
-          test -f ../error/CMakeLists.txt || (echo "::error::../error/CMakeLists.txt is missing"; exit 1)
+          set -euxo pipefail
 
-      - name: Install dependencies
+          test -f ../error/CMakeLists.txt
+          test -f ../error/include/vix/error/Result.hpp
+
+      - name: Export dependency include paths
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y $DEPS
+          EXTRA_PATHS="$GITHUB_WORKSPACE/../error/include"
+
+          echo "CPATH=$EXTRA_PATHS${CPATH:+:$CPATH}" >> "$GITHUB_ENV"
+          echo "CPLUS_INCLUDE_PATH=$EXTRA_PATHS${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}" >> "$GITHUB_ENV"
 
       - name: Configure valgrind build
         run: |
-          cmake -G Ninja -S . -B build-valgrind \
+          cmake -S . -B build-valgrind -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DVIX_IO_BUILD_TESTS=ON \
             -DVIX_ENABLE_SANITIZERS=OFF \
@@ -220,7 +268,6 @@ jobs:
         shell: bash
         run: |
           set +e
-          FAIL=0
 
           mapfile -t TEST_BINS < <(
             find build-valgrind/test -type f -executable 2>/dev/null | sort
@@ -238,19 +285,13 @@ jobs:
               --show-leak-kinds=all \
               --track-origins=yes \
               "$exe"
-            STATUS=$?
 
+            STATUS=$?
             if [ $STATUS -ne 0 ] && [ $STATUS -ne 124 ]; then
               echo "::warning::Valgrind reported issues for $exe"
-              FAIL=1
             fi
           done
 
-          if [ $FAIL -ne 0 ]; then
-            echo "::warning::Valgrind detected potential issues."
-          else
-            echo "Valgrind checks completed."
-          fi
           exit 0
 
   package-smoke:
@@ -263,43 +304,68 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            g++ \
+            pkg-config \
+            git \
+            curl \
+            ca-certificates
+
       - name: Fetch sibling dependency
         run: |
+          set -euxo pipefail
+
           rm -rf ../error
           git clone --depth 1 --branch "${VIX_GIT_BRANCH}" https://github.com/vixcpp/error.git ../error
 
       - name: Verify required sibling dependency
         run: |
-          test -f ../error/CMakeLists.txt || (echo "::error::../error/CMakeLists.txt is missing"; exit 1)
+          set -euxo pipefail
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y $DEPS
+          test -f ../error/CMakeLists.txt
+          test -f ../error/include/vix/error/Result.hpp
 
       - name: Build and install error
         run: |
-          cmake -G Ninja -S ../error -B ../error/build \
+          cmake -S ../error -B ../error/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DVIX_ERROR_BUILD_TESTS=OFF \
             -DCMAKE_INSTALL_PREFIX="$PWD/stage"
+
           cmake --build ../error/build -j"${BUILD_JOBS}"
           cmake --install ../error/build
 
       - name: Build and install io
         run: |
-          cmake -G Ninja -S . -B build-install \
+          cmake -S . -B build-install -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DVIX_IO_BUILD_TESTS=OFF \
             -DVIX_IO_FETCH_ERROR=OFF \
             -DCMAKE_PREFIX_PATH="$PWD/stage" \
             -DCMAKE_INSTALL_PREFIX="$PWD/stage"
+
           cmake --build build-install -j"${BUILD_JOBS}"
           cmake --install build-install
+
+      - name: Verify install tree
+        run: |
+          find stage -maxdepth 8 -type f | sort
+
+          test -f stage/include/vix/io/IoResult.hpp
+          test -f stage/include/vix/error/Result.hpp
+          test -f stage/lib/libvix_io.a
+          test -f stage/lib/cmake/vix_io/vix_ioTargets.cmake
 
       - name: Verify installed package with find_package
         run: |
           mkdir -p smoke
+
           cat > smoke/CMakeLists.txt <<'EOF'
           cmake_minimum_required(VERSION 3.20)
           project(io_smoke LANGUAGES CXX)
@@ -314,6 +380,8 @@ jobs:
           EOF
 
           cat > smoke/main.cpp <<'EOF'
+          #include <vix/io/IoResult.hpp>
+
           #include <iostream>
 
           int main()
@@ -323,9 +391,10 @@ jobs:
           }
           EOF
 
-          cmake -G Ninja -S smoke -B smoke/build \
+          cmake -S smoke -B smoke/build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$PWD/stage"
+
           cmake --build smoke/build -j"${BUILD_JOBS}"
 
   config-coverage:
@@ -338,23 +407,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            g++ \
+            pkg-config \
+            git \
+            curl \
+            ca-certificates
+
       - name: Fetch sibling dependency
         run: |
+          set -euxo pipefail
+
           rm -rf ../error
           git clone --depth 1 --branch "${VIX_GIT_BRANCH}" https://github.com/vixcpp/error.git ../error
 
       - name: Verify required sibling dependency
         run: |
-          test -f ../error/CMakeLists.txt || (echo "::error::../error/CMakeLists.txt is missing"; exit 1)
+          set -euxo pipefail
 
-      - name: Install dependencies
+          test -f ../error/CMakeLists.txt
+          test -f ../error/include/vix/error/Result.hpp
+
+      - name: Export dependency include paths
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y $DEPS
+          EXTRA_PATHS="$GITHUB_WORKSPACE/../error/include"
+
+          echo "CPATH=$EXTRA_PATHS${CPATH:+:$CPATH}" >> "$GITHUB_ENV"
+          echo "CPLUS_INCLUDE_PATH=$EXTRA_PATHS${CPLUS_INCLUDE_PATH:+:$CPLUS_INCLUDE_PATH}" >> "$GITHUB_ENV"
 
       - name: Configure release mode
         run: |
-          cmake -G Ninja -S . -B build-release \
+          cmake -S . -B build-release -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DVIX_IO_BUILD_TESTS=OFF \
             -DVIX_ENABLE_SANITIZERS=OFF \
@@ -366,7 +455,7 @@ jobs:
 
       - name: Configure debug mode
         run: |
-          cmake -G Ninja -S . -B build-debug \
+          cmake -S . -B build-debug -G Ninja \
             -DCMAKE_BUILD_TYPE=Debug \
             -DVIX_IO_BUILD_TESTS=OFF \
             -DVIX_ENABLE_SANITIZERS=OFF \
@@ -379,23 +468,20 @@ jobs:
   summary:
     name: Io Strict CI Summary
     needs:
-      [
-        build-test-sanitized,
-        static-analysis,
-        valgrind,
-        package-smoke,
-        config-coverage,
-      ]
+      - build-test-sanitized
+      - static-analysis
+      - valgrind
+      - package-smoke
+      - config-coverage
     runs-on: ubuntu-latest
 
     steps:
       - name: Print summary
         run: |
           echo "Io strict CI completed."
-          echo "This workflow validates:"
-          echo "- sanitized builds"
-          echo "- unit tests"
+          echo "- gcc and clang sanitized builds"
+          echo "- io unit tests"
           echo "- static analysis"
-          echo "- valgrind"
-          echo "- package install smoke test"
-          echo "- important configuration variants"
+          echo "- valgrind smoke checks"
+          echo "- install and find_package smoke test"
+          echo "- release and debug configuration coverage"

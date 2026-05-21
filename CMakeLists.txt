@@ -125,12 +125,12 @@ function(vix_io_resolve_dependency module_name target_name package_name fetch_op
 
     message(STATUS "[io] Fetching ${target_name} via FetchContent")
 
-    FetchContent_Declare(${package_name}
+    fetchcontent_declare(${package_name}
       GIT_REPOSITORY ${git_url}
       GIT_TAG        ${git_tag}
     )
 
-    FetchContent_MakeAvailable(${package_name})
+    fetchcontent_makeavailable(${package_name})
   else()
     message(FATAL_ERROR
       "${target_name} not found.\n"
@@ -179,12 +179,8 @@ if (IO_SOURCES)
   )
 
   target_link_libraries(vix_io
-    PRIVATE
+    PUBLIC
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
-  )
-
-  target_link_libraries(vix_io
-    INTERFACE
       $<INSTALL_INTERFACE:vix::error>
   )
 
