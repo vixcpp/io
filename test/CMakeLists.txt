@@ -1,24 +1,39 @@
-add_executable(vix_io_buffer_test buffer_test.cpp)
-target_compile_features(vix_io_buffer_test PRIVATE cxx_std_20)
-target_link_libraries(vix_io_buffer_test PRIVATE vix::io)
-add_test(NAME vix_io_buffer_test COMMAND vix_io_buffer_test)
+function(vix_io_add_test test_name test_source)
+  add_executable(${test_name}
+    ${test_source}
+  )
 
-add_executable(vix_io_copy_test copy_test.cpp)
-target_compile_features(vix_io_copy_test PRIVATE cxx_std_20)
-target_link_libraries(vix_io_copy_test PRIVATE vix::io)
-add_test(NAME vix_io_copy_test COMMAND vix_io_copy_test)
+  target_compile_features(${test_name}
+    PRIVATE
+      cxx_std_20
+  )
 
-add_executable(vix_io_read_all_test read_all_test.cpp)
-target_compile_features(vix_io_read_all_test PRIVATE cxx_std_20)
-target_link_libraries(vix_io_read_all_test PRIVATE vix::io)
-add_test(NAME vix_io_read_all_test COMMAND vix_io_read_all_test)
+  target_link_libraries(${test_name}
+    PRIVATE
+      vix::io
+  )
 
-add_executable(vix_io_read_line_test read_line_test.cpp)
-target_compile_features(vix_io_read_line_test PRIVATE cxx_std_20)
-target_link_libraries(vix_io_read_line_test PRIVATE vix::io)
-add_test(NAME vix_io_read_line_test COMMAND vix_io_read_line_test)
+  if (VIX_ENABLE_SANITIZERS AND NOT MSVC)
+    target_compile_options(${test_name}
+      PRIVATE
+        -fno-omit-frame-pointer
+        -fsanitize=address,undefined
+    )
 
-add_executable(vix_io_write_test write_test.cpp)
-target_compile_features(vix_io_write_test PRIVATE cxx_std_20)
-target_link_libraries(vix_io_write_test PRIVATE vix::io)
-add_test(NAME vix_io_write_test COMMAND vix_io_write_test)
+    target_link_options(${test_name}
+      PRIVATE
+        -fsanitize=address,undefined
+    )
+  endif()
+
+  add_test(
+    NAME ${test_name}
+    COMMAND ${test_name}
+  )
+endfunction()
+
+vix_io_add_test(vix_io_buffer_test buffer_test.cpp)
+vix_io_add_test(vix_io_copy_test copy_test.cpp)
+vix_io_add_test(vix_io_read_all_test read_all_test.cpp)
+vix_io_add_test(vix_io_read_line_test read_line_test.cpp)
+vix_io_add_test(vix_io_write_test write_test.cpp)
