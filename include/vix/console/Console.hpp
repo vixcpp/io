@@ -619,17 +619,17 @@ namespace vix
       std::uintptr_t v = reinterpret_cast<std::uintptr_t>(p);
       lb.push_str("0x");
       char digits[2 * sizeof(std::uintptr_t)];
-      int i = 0;
-      while (v > 0 && i < (int)sizeof(digits))
+      std::size_t i = 0;
+      while (v > 0 && i < sizeof(digits))
       {
-        const int nib = int(v & 0xF);
+        const int nib = static_cast<int>(v & 0xF);
         digits[i++] = static_cast<char>(nib < 10 ? ('0' + nib) : ('a' + (nib - 10)));
         v >>= 4;
       }
       if (i == 0)
         digits[i++] = '0';
-      for (int j = i - 1; j >= 0; --j)
-        lb.push_char(digits[j]);
+      while (i > 0)
+        lb.push_char(digits[--i]);
     }
 
     template <typename T>
