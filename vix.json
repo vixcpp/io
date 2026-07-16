@@ -1,0 +1,51 @@
+{
+  "namespace": "vix",
+  "name": "io",
+  "displayName": "Vix IO",
+  "version": "0.2.1",
+  "type": "library",
+  "license": "MIT",
+  "description": "Simple cross-platform stream-oriented input and output utilities for Vix C++ projects.",
+  "repository": "https://github.com/vixcpp/io.git",
+  "documentation": "https://github.com/vixcpp/io#readme",
+  "include": "include",
+  "standard": "c++20",
+  "keywords": [
+    "vix",
+    "cpp",
+    "io",
+    "streams",
+    "console"
+  ],
+  "authors": [
+    {
+      "name": "Gaspard Kirira"
+    }
+  ],
+  "maintainers": [
+    {
+      "name": "Gaspard Kirira"
+    }
+  ],
+  "exports": {
+    "modules": [
+      "vix::io"
+    ],
+    "namespaces": [
+      "vix::io"
+    ]
+  },
+  "constraints": {
+    "platforms": [
+      "linux",
+      "macos",
+      "windows"
+    ]
+  },
+  "deps": [
+    {
+      "id": "vix/error",
+      "version": "0.3.1"
+    }
+  ]
+}
