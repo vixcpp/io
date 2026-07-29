@@ -9,12 +9,12 @@ int main()
 
   if (data)
   {
-    vix::io::write(out, data.value());
+    (void)vix::io::write(out, data.value());
   }
   else
   {
     auto err = vix::io::stderr_stream();
-    vix::io::write_line(err, "read_all failed");
+    (void)vix::io::write_line(err, "read_all failed");
   }
 
   return 0;

@@ -28,6 +28,7 @@
 #
 # Public Dependencies:
 #   - vix::error
+#   - vix::log
 #
 # Installation/Export:
 #   - Umbrella build exports into: VixTargets
@@ -64,7 +65,9 @@ endif()
 # Options
 # --------------------------------------------------------------------
 option(VIX_IO_FETCH_ERROR "Auto-fetch vix::error if missing" ON)
+option(VIX_IO_FETCH_LOG "Auto-fetch vix::log if missing" ON)
 option(VIX_IO_BUILD_TESTS "Build io module tests" OFF)
+option(VIX_IO_BUILD_EXAMPLES "Build io module examples" OFF)
 
 # Tracks whether standalone io used local sibling dependencies.
 # If yes, we skip standalone package export because local sibling targets
@@ -76,6 +79,7 @@ set(VIX_IO_HAS_LOCAL_DEPENDENCIES OFF)
 # --------------------------------------------------------------------
 if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
   set(VIX_IO_FETCH_ERROR OFF CACHE BOOL "Auto-fetch vix::error if missing" FORCE)
+  set(VIX_IO_FETCH_LOG OFF CACHE BOOL "Auto-fetch vix::log if missing" FORCE)
 endif()
 
 # --------------------------------------------------------------------
@@ -161,6 +165,17 @@ vix_io_resolve_dependency(
 
 set(VIX_ERROR_TARGET vix::error)
 
+vix_io_resolve_dependency(
+  log
+  vix::log
+  vix_log
+  VIX_IO_FETCH_LOG
+  https://github.com/vixcpp/log.git
+  v0.1.0
+)
+
+set(VIX_LOG_TARGET vix::log)
+
 # --------------------------------------------------------------------
 # Library target
 # --------------------------------------------------------------------
@@ -181,7 +196,9 @@ if (IO_SOURCES)
   target_link_libraries(vix_io
     PUBLIC
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
+      $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
+      $<INSTALL_INTERFACE:vix::log>
   )
 
   if (NOT MSVC)
@@ -234,7 +251,9 @@ else()
   target_link_libraries(vix_io
     INTERFACE
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
+      $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
+      $<INSTALL_INTERFACE:vix::log>
   )
 
   install(TARGETS vix_io
@@ -305,6 +324,17 @@ if (VIX_IO_BUILD_TESTS)
 endif()
 
 # --------------------------------------------------------------------
+# Examples
+# --------------------------------------------------------------------
+if (VIX_IO_BUILD_EXAMPLES)
+  if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/CMakeLists.txt")
+    add_subdirectory(examples)
+  else()
+    message(WARNING "[io/examples] VIX_IO_BUILD_EXAMPLES=ON but examples/CMakeLists.txt not found, skipping.")
+  endif()
+endif()
+
+# --------------------------------------------------------------------
 # Summary
 # --------------------------------------------------------------------
 message(STATUS "------------------------------------------------------")
@@ -318,8 +348,10 @@ endif()
 
 message(STATUS "Export set:         ${VIX_IO_EXPORT_SET}")
 message(STATUS "Error target:       ${VIX_ERROR_TARGET}")
+message(STATUS "Log target:         ${VIX_LOG_TARGET}")
 message(STATUS "Local deps:         ${VIX_IO_HAS_LOCAL_DEPENDENCIES}")
 message(STATUS "Tests:              ${VIX_IO_BUILD_TESTS}")
+message(STATUS "Examples:           ${VIX_IO_BUILD_EXAMPLES}")
 message(STATUS "Include dir:        ${CMAKE_CURRENT_SOURCE_DIR}/include")
 message(STATUS "Public headers:")
 message(STATUS "  - <vix/io/...>")

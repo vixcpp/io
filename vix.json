@@ -46,6 +46,10 @@
     {
       "id": "vix/error",
       "version": "0.3.1"
+    },
+    {
+      "id": "vix/log",
+      "version": "0.1.0"
     }
   ]
 }

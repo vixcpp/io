@@ -10,7 +10,7 @@ int main()
   if (!result)
   {
     auto err = vix::io::stderr_stream();
-    vix::io::write_line(err, "copy failed");
+    (void)vix::io::write_line(err, "copy failed");
     return 1;
   }
 
