@@ -468,19 +468,26 @@ namespace
     static_assert(noexcept(std::declval<vix::Console &>().warn("x")));
     static_assert(noexcept(std::declval<vix::Console &>().error("x")));
     static_assert(noexcept(std::declval<vix::Console &>().critical("x")));
-    static_assert(noexcept(std::declval<vix::Console &>().logf("x {}", 1)));
-    static_assert(noexcept(std::declval<vix::Console &>().debugf("x {}", 1)));
-    static_assert(noexcept(std::declval<vix::Console &>().warnf("x {}", 1)));
-    static_assert(noexcept(std::declval<vix::Console &>().errorf("x {}", 1)));
+    static_assert(noexcept(std::declval<vix::Console &>().logf(
+        std::declval<std::string_view>(), std::declval<const int &>())));
+    static_assert(noexcept(std::declval<vix::Console &>().debugf(
+        std::declval<std::string_view>(), std::declval<const int &>())));
+    static_assert(noexcept(std::declval<vix::Console &>().warnf(
+        std::declval<std::string_view>(), std::declval<const int &>())));
+    static_assert(noexcept(std::declval<vix::Console &>().errorf(
+        std::declval<std::string_view>(), std::declval<const int &>())));
     static_assert(noexcept(std::declval<vix::Console &>().dir(1)));
-    static_assert(noexcept(std::declval<vix::Console &>().event("x")));
-    static_assert(noexcept(std::declval<vix::Console &>().event_at(Level::Info, "x")));
+    static_assert(noexcept(std::declval<vix::Console &>().event(
+        std::declval<std::string_view>())));
+    static_assert(noexcept(std::declval<vix::Console &>().event_at(
+        Level::Info, std::declval<std::string_view>())));
     static_assert(noexcept(std::declval<vix::Console &>().set_level(Level::Info)));
     static_assert(noexcept(std::declval<vix::Console &>().set_format(Format::JSON)));
     static_assert(noexcept(std::declval<vix::Console &>().set_async(false)));
     static_assert(noexcept(std::declval<vix::Console &>().set_limits({})));
     static_assert(noexcept(std::declval<vix::Console &>().set_rate_limit({false, 0})));
-    static_assert(noexcept(std::declval<vix::Console &>().set_context({})));
+    static_assert(noexcept(std::declval<vix::Console &>().set_context(
+        std::declval<vix::log::LogContext>())));
     static_assert(noexcept(std::declval<vix::Console &>().clear_context()));
     static_assert(!std::is_copy_constructible_v<vix::Console>);
     static_assert(!std::is_copy_assignable_v<vix::Console>);
