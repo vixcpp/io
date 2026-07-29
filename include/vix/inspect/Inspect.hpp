@@ -1115,13 +1115,6 @@ namespace vix
         ctx.os << ctx.opts.indent_str << "  "
                << key << ": " << val << '\n';
       };
-      auto indb = [&](std::string_view key, bool val)
-      {
-        if (val)
-          ctx.os << ctx.opts.indent_str << "  "
-                 << key << ": true\n";
-      };
-
       ind("name", m.name);
       ind("full_name", m.full_name);
       ind("size", std::to_string(m.size_bytes) + " bytes");
@@ -1848,19 +1841,20 @@ namespace vix
         int idx = static_cast<int>(
             std::min(static_cast<double>(BUCKETS - 1),
                      (static_cast<double>(v) - static_cast<double>(mn)) / bucket_w));
-        ++hist[idx];
+        ++hist[static_cast<std::size_t>(idx)];
       }
       os << "  histogram:\n";
       for (int i = 0; i < BUCKETS; ++i)
       {
         double lo = static_cast<double>(mn) + i * bucket_w;
         double hi = lo + bucket_w;
-        int bar = hist[i] * 20 / static_cast<int>(n);
+        int bar = hist[static_cast<std::size_t>(i)] * 20 /
+                  static_cast<int>(n);
         os << "    [" << std::setw(7) << lo
            << ", " << std::setw(7) << hi << ") | ";
         for (int j = 0; j < bar; ++j)
           os << '#';
-        os << " (" << hist[i] << ")\n";
+        os << " (" << hist[static_cast<std::size_t>(i)] << ")\n";
       }
     }
   }
@@ -2034,7 +2028,7 @@ namespace vix
   void inspect_tree(const T &value, std::string_view root_label = "root")
   {
     auto &os = *default_options().out;
-    tree::tree_context tctx{os};
+    tree::tree_context tctx{os, 0, 6, true, {}};
     tree::twrite(tctx, root_label, value);
   }
 

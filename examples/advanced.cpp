@@ -5,7 +5,7 @@ int main()
   auto in = vix::io::stdin_stream();
   auto out = vix::io::stdout_stream();
 
-  vix::io::write_line(out, "Enter lines (Ctrl+D to finish):");
+  (void)vix::io::write_line(out, "Enter lines (Ctrl+D to finish):");
 
   while (true)
   {
@@ -21,8 +21,8 @@ int main()
       break;
     }
 
-    vix::io::write(out, ">> ");
-    vix::io::write_line(out, line.value());
+    (void)vix::io::write(out, ">> ");
+    (void)vix::io::write_line(out, line.value());
   }
 
   return 0;

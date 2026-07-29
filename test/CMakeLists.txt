@@ -34,6 +34,7 @@ endfunction()
 
 vix_io_add_test(vix_io_buffer_test buffer_test.cpp)
 vix_io_add_test(vix_io_copy_test copy_test.cpp)
+vix_io_add_test(vix_io_console_test ConsoleTests.cpp)
 vix_io_add_test(vix_io_read_all_test read_all_test.cpp)
 vix_io_add_test(vix_io_read_line_test read_line_test.cpp)
 vix_io_add_test(vix_io_write_test write_test.cpp)

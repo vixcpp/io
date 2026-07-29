@@ -9,7 +9,7 @@ int main()
 
   auto out = vix::io::stdout_stream();
 
-  vix::io::write_line(out, buffer.to_string());
+  (void)vix::io::write_line(out, buffer.to_string());
 
   return 0;
 }
