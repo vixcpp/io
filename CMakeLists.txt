@@ -181,7 +181,7 @@ function(vix_io_prepare_utils_third_party)
     message(STATUS "[io] Fetching fmt for vix::utils")
     set(FMT_DOC OFF CACHE BOOL "" FORCE)
     set(FMT_TEST OFF CACHE BOOL "" FORCE)
-    set(FMT_INSTALL OFF CACHE BOOL "" FORCE)
+    set(FMT_INSTALL ON CACHE BOOL "" FORCE)
     FetchContent_Declare(vix_fmt
       GIT_REPOSITORY https://github.com/fmtlib/fmt.git
       GIT_TAG        10.2.1
@@ -196,7 +196,7 @@ function(vix_io_prepare_utils_third_party)
     set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
     set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
-    set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
+    set(SPDLOG_INSTALL ON CACHE BOOL "" FORCE)
     FetchContent_Declare(vix_spdlog
       GIT_REPOSITORY https://github.com/gabime/spdlog.git
       GIT_TAG        v1.14.1
