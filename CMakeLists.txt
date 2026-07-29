@@ -29,6 +29,7 @@
 # Public Dependencies:
 #   - vix::error
 #   - vix::log
+#   - vix::utils
 #
 # Installation/Export:
 #   - Umbrella build exports into: VixTargets
@@ -65,6 +66,7 @@ endif()
 # Options
 # --------------------------------------------------------------------
 option(VIX_IO_FETCH_ERROR "Auto-fetch vix::error if missing" ON)
+option(VIX_IO_FETCH_UTILS "Auto-fetch vix::utils if missing" ON)
 option(VIX_IO_FETCH_LOG "Auto-fetch vix::log if missing" ON)
 option(VIX_IO_BUILD_TESTS "Build io module tests" OFF)
 option(VIX_IO_BUILD_EXAMPLES "Build io module examples" OFF)
@@ -79,6 +81,7 @@ set(VIX_IO_HAS_LOCAL_DEPENDENCIES OFF)
 # --------------------------------------------------------------------
 if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
   set(VIX_IO_FETCH_ERROR OFF CACHE BOOL "Auto-fetch vix::error if missing" FORCE)
+  set(VIX_IO_FETCH_UTILS OFF CACHE BOOL "Auto-fetch vix::utils if missing" FORCE)
   set(VIX_IO_FETCH_LOG OFF CACHE BOOL "Auto-fetch vix::log if missing" FORCE)
 endif()
 
@@ -160,10 +163,21 @@ vix_io_resolve_dependency(
   vix_error
   VIX_IO_FETCH_ERROR
   https://github.com/vixcpp/error.git
-  v0.1.0
+  v0.3.1
 )
 
 set(VIX_ERROR_TARGET vix::error)
+
+vix_io_resolve_dependency(
+  utils
+  vix::utils
+  vix_utils
+  VIX_IO_FETCH_UTILS
+  https://github.com/vixcpp/utils.git
+  v1.5.2
+)
+
+set(VIX_UTILS_TARGET vix::utils)
 
 vix_io_resolve_dependency(
   log
@@ -196,8 +210,10 @@ if (IO_SOURCES)
   target_link_libraries(vix_io
     PUBLIC
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
+      $<BUILD_INTERFACE:${VIX_UTILS_TARGET}>
       $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
+      $<INSTALL_INTERFACE:vix::utils>
       $<INSTALL_INTERFACE:vix::log>
   )
 
@@ -251,8 +267,10 @@ else()
   target_link_libraries(vix_io
     INTERFACE
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
+      $<BUILD_INTERFACE:${VIX_UTILS_TARGET}>
       $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
+      $<INSTALL_INTERFACE:vix::utils>
       $<INSTALL_INTERFACE:vix::log>
   )
 
@@ -348,6 +366,7 @@ endif()
 
 message(STATUS "Export set:         ${VIX_IO_EXPORT_SET}")
 message(STATUS "Error target:       ${VIX_ERROR_TARGET}")
+message(STATUS "Utils target:       ${VIX_UTILS_TARGET}")
 message(STATUS "Log target:         ${VIX_LOG_TARGET}")
 message(STATUS "Local deps:         ${VIX_IO_HAS_LOCAL_DEPENDENCIES}")
 message(STATUS "Tests:              ${VIX_IO_BUILD_TESTS}")
