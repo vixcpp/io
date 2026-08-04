@@ -2,7 +2,11 @@ name: Io Cross Platform CI
 
 on:
   push:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      - release/**
     paths:
       - ".github/workflows/io-cross-platform-ci.yml"
       - "CMakeLists.txt"
@@ -10,11 +14,17 @@ on:
       - "include/**"
       - "src/**"
       - "test/**"
+      - "examples/**"
       - "README.md"
       - "CHANGELOG.md"
       - "vix.json"
+
   pull_request:
-    branches: [main, master, dev]
+    branches:
+      - main
+      - master
+      - dev
+      - release/**
     paths:
       - ".github/workflows/io-cross-platform-ci.yml"
       - "CMakeLists.txt"
@@ -22,9 +32,11 @@ on:
       - "include/**"
       - "src/**"
       - "test/**"
+      - "examples/**"
       - "README.md"
       - "CHANGELOG.md"
       - "vix.json"
+
   workflow_dispatch:
 
 permissions:
@@ -36,10 +48,13 @@ env:
 
 jobs:
   build-test-package:
-    name: build test package (${{ matrix.os }} / ${{ matrix.build_type }})
+    name: Build and test (${{ matrix.os }} / ${{ matrix.build_type }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
     strategy:
       fail-fast: false
+
       matrix:
         include:
           - os: ubuntu-24.04
@@ -82,6 +97,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             build-essential \
@@ -94,45 +110,96 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+
           brew update
           brew install ninja || true
 
-      - name: Configure and build error (Unix)
+      # ------------------------------------------------------------------
+      # vix::error
+      # ------------------------------------------------------------------
+
+      - name: Configure error dependency (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
+
           cmake -S error -B error/build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             -DVIX_ERROR_BUILD_TESTS=OFF \
             -DCMAKE_INSTALL_PREFIX="$PWD/stage"
-          cmake --build error/build --parallel ${BUILD_JOBS}
+
+      - name: Build error dependency (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --build error/build \
+            --parallel "${BUILD_JOBS}"
+
+      - name: Install error dependency (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
           cmake --install error/build
 
-      - name: Configure and build error (Windows)
+      - name: Configure error dependency (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           cmake -S error -B error/build `
-            -DCMAKE_INSTALL_PREFIX="$PWD/stage" `
-            -DVIX_ERROR_BUILD_TESTS=OFF
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            -DVIX_ERROR_BUILD_TESTS=OFF `
+            -DCMAKE_INSTALL_PREFIX="$PWD/stage"
 
-          cmake --build error/build --config ${{ matrix.build_type }} --parallel $env:BUILD_JOBS
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
 
-          cmake --install error/build --config ${{ matrix.build_type }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build error dependency (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --build error/build `
+            --config ${{ matrix.build_type }} `
+            --parallel $env:BUILD_JOBS
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      - name: Install error dependency (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cmake --install error/build `
+            --config ${{ matrix.build_type }}
+
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      # ------------------------------------------------------------------
+      # vix::io configuration
+      # ------------------------------------------------------------------
 
       - name: Configure io (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
+
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
             -DVIX_IO_BUILD_TESTS=ON \
+            -DVIX_IO_BUILD_EXAMPLES=OFF \
             -DVIX_IO_FETCH_ERROR=OFF \
+            -DVIX_IO_FETCH_UTILS=ON \
+            -DVIX_IO_FETCH_LOG=ON \
+            -DVIX_IO_FETCH_THIRD_PARTY=ON \
             -DCMAKE_PREFIX_PATH="$PWD/stage" \
             -DCMAKE_INSTALL_PREFIX="$PWD/stage"
 
@@ -142,24 +209,37 @@ jobs:
         run: |
           cmake -S . -B build `
             -DVIX_IO_BUILD_TESTS=ON `
+            -DVIX_IO_BUILD_EXAMPLES=OFF `
             -DVIX_IO_FETCH_ERROR=OFF `
+            -DVIX_IO_FETCH_UTILS=ON `
+            -DVIX_IO_FETCH_LOG=ON `
+            -DVIX_IO_FETCH_THIRD_PARTY=ON `
             -DCMAKE_PREFIX_PATH="$PWD/stage" `
             -DCMAKE_INSTALL_PREFIX="$PWD/stage"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Build io (Unix)
+          if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+          }
+
+      # ------------------------------------------------------------------
+      # Build
+      # ------------------------------------------------------------------
+
+      - name: Build io and tests (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
-          cmake --build build --parallel ${BUILD_JOBS}
 
-      - name: Build io (Windows)
+          cmake --build build \
+            --parallel "${BUILD_JOBS}"
+
+      - name: Build io and portable tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # ConsoleTests.cpp currently contains a static assertion that is
-          # not portable to MSVC. Build every other Windows test explicitly.
+          # ConsoleTests.cpp currently contains a compile-time assertion
+          # that is not portable to MSVC. Build all other Windows tests.
           cmake --build build `
             --config ${{ matrix.build_type }} `
             --parallel $env:BUILD_JOBS `
@@ -175,19 +255,35 @@ jobs:
             exit $LASTEXITCODE
           }
 
+      # ------------------------------------------------------------------
+      # Tests
+      # ------------------------------------------------------------------
+
+      - name: List tests (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ctest --test-dir build -N
+
       - name: Run tests (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
-          ctest --test-dir build --output-on-failure
 
-      - name: Run tests (Windows)
+          ctest \
+            --test-dir build \
+            --output-on-failure \
+            --timeout 90
+
+      - name: List tests (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Write-Host "Discovered tests:"
-          ctest --test-dir build `
+          ctest `
+            --test-dir build `
             -C ${{ matrix.build_type }} `
             -N
 
@@ -195,9 +291,14 @@ jobs:
             exit $LASTEXITCODE
           }
 
-          # ConsoleTests.cpp:489 currently fails to compile under MSVC.
-          # Keep running every other cross-platform io test.
-          ctest --test-dir build `
+      - name: Run portable tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # vix_io_console_test is temporarily excluded because
+          # ConsoleTests.cpp does not currently compile under MSVC.
+          ctest `
+            --test-dir build `
             -C ${{ matrix.build_type }} `
             --output-on-failure `
             --timeout 90 `
@@ -207,128 +308,421 @@ jobs:
             exit $LASTEXITCODE
           }
 
-      - name: Install io (Unix)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          set -euxo pipefail
-          cmake --install build
+      # ------------------------------------------------------------------
+      # Diagnostics
+      # ------------------------------------------------------------------
 
-      - name: Install io (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          cmake --install build --config ${{ matrix.build_type }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Package smoke test (Unix)
+      - name: Print generated executables (Unix)
         if: runner.os != 'Windows'
         shell: bash
         run: |
           set -euxo pipefail
 
-          mkdir -p smoke
-          cat > smoke/CMakeLists.txt <<'EOF'
-          cmake_minimum_required(VERSION 3.20)
-          project(io_smoke LANGUAGES CXX)
+          find build -type f -perm -111 | sort || true
 
-          set(CMAKE_CXX_STANDARD 20)
-          set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-          find_package(vix_io CONFIG REQUIRED)
-
-          add_executable(io_smoke main.cpp)
-          target_link_libraries(io_smoke PRIVATE vix::io)
-          EOF
-
-          cat > smoke/main.cpp <<'EOF'
-          #include <iostream>
-
-          int main()
-          {
-            std::cout << "vix::io package found\n";
-            return 0;
-          }
-          EOF
-
-          cmake -S smoke -B smoke/build -G Ninja \
-            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-            -DCMAKE_PREFIX_PATH="$PWD/stage"
-          cmake --build smoke/build --parallel ${BUILD_JOBS}
-
-      - name: Package smoke test (Windows)
+      - name: Print generated executables (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path smoke | Out-Null
+          Get-ChildItem `
+            -Path build `
+            -Recurse `
+            -Filter *.exe `
+            -ErrorAction SilentlyContinue |
+            Sort-Object FullName |
+            ForEach-Object {
+              Write-Host $_.FullName
+            }
 
-          @"
-          cmake_minimum_required(VERSION 3.20)
-          project(io_smoke LANGUAGES CXX)
-
-          set(CMAKE_CXX_STANDARD 20)
-          set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-          find_package(vix_io CONFIG REQUIRED)
-
-          add_executable(io_smoke main.cpp)
-          target_link_libraries(io_smoke PRIVATE vix::io)
-          "@ | Out-File -FilePath smoke/CMakeLists.txt -Encoding utf8
-
-          @"
-          #include <iostream>
-
-          int main()
-          {
-            std::cout << "vix::io package found\n";
-            return 0;
-          }
-          "@ | Out-File -FilePath smoke/main.cpp -Encoding utf8
-
-          cmake -S smoke -B smoke/build `
-            -DCMAKE_PREFIX_PATH="$PWD/stage"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          cmake --build smoke/build --config ${{ matrix.build_type }} --parallel $env:BUILD_JOBS
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Collect logs
-        if: failure()
+      - name: Collect logs (Unix)
+        if: failure() && runner.os != 'Windows'
         shell: bash
         run: |
           mkdir -p logs
 
-          cp -f build/CMakeCache.txt logs/ 2>/dev/null || true
-          cp -f build/CMakeFiles/CMakeOutput.log logs/ 2>/dev/null || true
-          cp -f build/CMakeFiles/CMakeError.log logs/ 2>/dev/null || true
-          cp -f build/CMakeFiles/CMakeConfigureLog.yaml logs/ 2>/dev/null || true
+          cp -f build/CMakeCache.txt \
+            logs/io_CMakeCache.txt 2>/dev/null || true
 
-          cp -f error/build/CMakeCache.txt logs/error_CMakeCache.txt 2>/dev/null || true
-          cp -f error/build/CMakeFiles/CMakeOutput.log logs/error_CMakeOutput.log 2>/dev/null || true
-          cp -f error/build/CMakeFiles/CMakeError.log logs/error_CMakeError.log 2>/dev/null || true
-          cp -f error/build/CMakeFiles/CMakeConfigureLog.yaml logs/error_CMakeConfigureLog.yaml 2>/dev/null || true
+          cp -f build/CMakeFiles/CMakeOutput.log \
+            logs/io_CMakeOutput.log 2>/dev/null || true
+
+          cp -f build/CMakeFiles/CMakeError.log \
+            logs/io_CMakeError.log 2>/dev/null || true
+
+          cp -f build/CMakeFiles/CMakeConfigureLog.yaml \
+            logs/io_CMakeConfigureLog.yaml 2>/dev/null || true
+
+          cp -f error/build/CMakeCache.txt \
+            logs/error_CMakeCache.txt 2>/dev/null || true
+
+          cp -f error/build/CMakeFiles/CMakeOutput.log \
+            logs/error_CMakeOutput.log 2>/dev/null || true
+
+          cp -f error/build/CMakeFiles/CMakeError.log \
+            logs/error_CMakeError.log 2>/dev/null || true
+
+          cp -f error/build/CMakeFiles/CMakeConfigureLog.yaml \
+            logs/error_CMakeConfigureLog.yaml 2>/dev/null || true
+
+          find build -path "*/Testing/Temporary/*" \
+            -type f \
+            -exec cp -f {} logs/ \; 2>/dev/null || true
+
+      - name: Collect logs (Windows)
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path logs |
+            Out-Null
+
+          $files = @{
+            "build/CMakeCache.txt" =
+              "logs/io_CMakeCache.txt"
+
+            "build/CMakeFiles/CMakeOutput.log" =
+              "logs/io_CMakeOutput.log"
+
+            "build/CMakeFiles/CMakeError.log" =
+              "logs/io_CMakeError.log"
+
+            "build/CMakeFiles/CMakeConfigureLog.yaml" =
+              "logs/io_CMakeConfigureLog.yaml"
+
+            "error/build/CMakeCache.txt" =
+              "logs/error_CMakeCache.txt"
+
+            "error/build/CMakeFiles/CMakeOutput.log" =
+              "logs/error_CMakeOutput.log"
+
+            "error/build/CMakeFiles/CMakeError.log" =
+              "logs/error_CMakeError.log"
+
+            "error/build/CMakeFiles/CMakeConfigureLog.yaml" =
+              "logs/error_CMakeConfigureLog.yaml"
+          }
+
+          foreach ($source in $files.Keys) {
+            if (Test-Path $source) {
+              Copy-Item `
+                -Path $source `
+                -Destination $files[$source] `
+                -Force
+            }
+          }
+
+          Get-ChildItem `
+            -Path build `
+            -Recurse `
+            -File `
+            -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.FullName -match "Testing[\\/]Temporary"
+            } |
+            ForEach-Object {
+              Copy-Item `
+                -Path $_.FullName `
+                -Destination logs `
+                -Force
+            }
 
       - name: Upload logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: io-logs-${{ matrix.os }}-${{ matrix.build_type }}
-          path: logs/*
+          path: logs/
           if-no-files-found: warn
+          retention-days: 14
+
+  # ====================================================================
+  # Standalone installation and find_package validation
+  #
+  # This job is intentionally kept outside the cross-platform matrix.
+  # FetchContent dependencies such as fmt and spdlog install their own
+  # targets. Installing the complete dependency tree through a Visual
+  # Studio multi-config build currently causes a Debug/Release artifact
+  # mismatch. Package export is therefore validated once on Linux Release.
+  # ====================================================================
+
+  package-smoke:
+    name: Package install and find_package smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout io repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout error dependency
+        uses: actions/checkout@v4
+        with:
+          repository: vixcpp/error
+          ref: ${{ env.VIX_GIT_BRANCH }}
+          path: error
+          fetch-depth: 0
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ninja-build \
+            pkg-config \
+            git
+
+      # ------------------------------------------------------------------
+      # Install vix::error
+      # ------------------------------------------------------------------
+
+      - name: Configure error package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake -S error -B error/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DVIX_ERROR_BUILD_TESTS=OFF \
+            -DCMAKE_INSTALL_PREFIX="$PWD/stage"
+
+      - name: Build error package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --build error/build \
+            --parallel "${BUILD_JOBS}"
+
+      - name: Install error package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --install error/build
+
+      # ------------------------------------------------------------------
+      # Install vix::io
+      # ------------------------------------------------------------------
+
+      - name: Configure io package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake -S . -B build-install -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+            -DVIX_IO_BUILD_TESTS=OFF \
+            -DVIX_IO_BUILD_EXAMPLES=OFF \
+            -DVIX_IO_FETCH_ERROR=OFF \
+            -DVIX_IO_FETCH_UTILS=ON \
+            -DVIX_IO_FETCH_LOG=ON \
+            -DVIX_IO_FETCH_THIRD_PARTY=ON \
+            -DCMAKE_PREFIX_PATH="$PWD/stage" \
+            -DCMAKE_INSTALL_PREFIX="$PWD/stage"
+
+      - name: Build io package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --build build-install \
+            --parallel "${BUILD_JOBS}"
+
+      - name: Install io package
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --install build-install
+
+      # ------------------------------------------------------------------
+      # Verify installation
+      # ------------------------------------------------------------------
+
+      - name: Print installation tree
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          find stage \
+            -maxdepth 10 \
+            -type f |
+            sort
+
+      - name: Verify io package files
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          test -d stage/include/vix/io
+          test -f stage/include/vix/io/IoResult.hpp
+          test -f stage/lib/libvix_io.a
+
+          test -f \
+            stage/lib/cmake/vix_io/vix_ioConfig.cmake
+
+          test -f \
+            stage/lib/cmake/vix_io/vix_ioConfigVersion.cmake
+
+          test -f \
+            stage/lib/cmake/vix_io/vix_ioTargets.cmake
+
+      - name: Verify dependency package files
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          test -d stage/include/vix/error
+          test -d stage/include/vix/utils
+          test -d stage/include/vix/log
+
+          find stage/lib/cmake \
+            -maxdepth 3 \
+            -type f |
+            sort
+
+      # ------------------------------------------------------------------
+      # External consumer
+      # ------------------------------------------------------------------
+
+      - name: Create package consumer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          mkdir -p smoke
+
+          cat > smoke/CMakeLists.txt <<'EOF'
+          cmake_minimum_required(VERSION 3.20)
+
+          project(io_smoke LANGUAGES CXX)
+
+          set(CMAKE_CXX_STANDARD 20)
+          set(CMAKE_CXX_STANDARD_REQUIRED ON)
+          set(CMAKE_CXX_EXTENSIONS OFF)
+
+          find_package(vix_io CONFIG REQUIRED)
+
+          add_executable(io_smoke main.cpp)
+
+          target_link_libraries(
+            io_smoke
+            PRIVATE
+              vix::io
+          )
+          EOF
+
+          cat > smoke/main.cpp <<'EOF'
+          #include <vix/io/IoResult.hpp>
+
+          #include <iostream>
+
+          int main()
+          {
+            std::cout << "vix::io package found\n";
+            return 0;
+          }
+          EOF
+
+      - name: Configure package consumer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake -S smoke -B smoke/build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/stage"
+
+      - name: Build package consumer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          cmake --build smoke/build \
+            --parallel "${BUILD_JOBS}"
+
+      - name: Run package consumer
+        shell: bash
+        run: |
+          set -euxo pipefail
+
+          ./smoke/build/io_smoke
+
+      # ------------------------------------------------------------------
+      # Diagnostics
+      # ------------------------------------------------------------------
+
+      - name: Collect package logs
+        if: failure()
+        shell: bash
+        run: |
+          mkdir -p logs
+
+          cp -f build-install/CMakeCache.txt \
+            logs/io_CMakeCache.txt 2>/dev/null || true
+
+          cp -f build-install/CMakeFiles/CMakeOutput.log \
+            logs/io_CMakeOutput.log 2>/dev/null || true
+
+          cp -f build-install/CMakeFiles/CMakeError.log \
+            logs/io_CMakeError.log 2>/dev/null || true
+
+          cp -f build-install/CMakeFiles/CMakeConfigureLog.yaml \
+            logs/io_CMakeConfigureLog.yaml 2>/dev/null || true
+
+          cp -f smoke/build/CMakeCache.txt \
+            logs/smoke_CMakeCache.txt 2>/dev/null || true
+
+          cp -f smoke/build/CMakeFiles/CMakeOutput.log \
+            logs/smoke_CMakeOutput.log 2>/dev/null || true
+
+          cp -f smoke/build/CMakeFiles/CMakeError.log \
+            logs/smoke_CMakeError.log 2>/dev/null || true
+
+          cp -f smoke/build/CMakeFiles/CMakeConfigureLog.yaml \
+            logs/smoke_CMakeConfigureLog.yaml 2>/dev/null || true
+
+          find stage \
+            -maxdepth 10 \
+            -type f |
+            sort > logs/install-tree.txt 2>/dev/null || true
+
+      - name: Upload package logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: io-package-smoke-logs
+          path: logs/
+          if-no-files-found: warn
+          retention-days: 14
 
   summary:
     name: Io Cross Platform CI Summary
-    needs: [build-test-package]
+    needs:
+      - build-test-package
+      - package-smoke
     runs-on: ubuntu-24.04
 
     steps:
       - name: Print summary
         shell: bash
         run: |
-          echo "Io cross-platform CI completed."
-          echo "- Linux build and test"
-          echo "- macOS build and test"
-          echo "- Windows library build and portable tests"
-          echo "- Windows console tests temporarily excluded pending MSVC portability fix"
-          echo "- install verification"
-          echo "- find_package(vix_io) smoke test"
+          echo "Io cross-platform CI completed successfully."
+          echo "- Linux Debug and Release builds and tests"
+          echo "- macOS Debug and Release builds and tests"
+          echo "- Windows Debug and Release portable builds and tests"
+          echo "- Windows console test temporarily excluded"
+          echo "- Ubuntu Release package installation"
+          echo "- vix_io exported CMake package verification"
+          echo "- External find_package(vix_io) consumer"
