@@ -94,6 +94,51 @@ file(GLOB_RECURSE IO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
+# Keep Vix-owned FetchContent options from changing a later consumer spdlog.
+macro(vix_io_push_spdlog_fetch_options)
+  foreach(_vix_option IN ITEMS SPDLOG_FMT_EXTERNAL SPDLOG_BUILD_EXAMPLE SPDLOG_BUILD_EXAMPLES SPDLOG_BUILD_TESTS SPDLOG_BUILD_BENCH SPDLOG_INSTALL)
+    get_property(_vix_normal_defined VARIABLE ${_vix_option} PROPERTY SET)
+    set(_VIX_IO_${_vix_option}_NORMAL_DEFINED ${_vix_normal_defined})
+    if (_vix_normal_defined)
+      set(_VIX_IO_${_vix_option}_NORMAL_VALUE "${${_vix_option}}")
+    endif()
+    if (DEFINED CACHE{${_vix_option}})
+      get_property(_VIX_IO_${_vix_option}_CACHE_VALUE CACHE ${_vix_option} PROPERTY VALUE)
+      get_property(_VIX_IO_${_vix_option}_CACHE_TYPE CACHE ${_vix_option} PROPERTY TYPE)
+      set(_VIX_IO_${_vix_option}_CACHE_DEFINED TRUE)
+    else()
+      set(_VIX_IO_${_vix_option}_CACHE_DEFINED FALSE)
+    endif()
+  endforeach()
+  set(SPDLOG_FMT_EXTERNAL ON)
+  set(SPDLOG_BUILD_EXAMPLE OFF)
+  set(SPDLOG_BUILD_EXAMPLES OFF)
+  set(SPDLOG_BUILD_TESTS OFF)
+  set(SPDLOG_BUILD_BENCH OFF)
+  set(SPDLOG_INSTALL ON)
+  set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
+  set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+  set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
+  set(SPDLOG_INSTALL ON CACHE BOOL "" FORCE)
+endmacro()
+
+macro(vix_io_pop_spdlog_fetch_options)
+  foreach(_vix_option IN ITEMS SPDLOG_FMT_EXTERNAL SPDLOG_BUILD_EXAMPLE SPDLOG_BUILD_EXAMPLES SPDLOG_BUILD_TESTS SPDLOG_BUILD_BENCH SPDLOG_INSTALL)
+    if (_VIX_IO_${_vix_option}_NORMAL_DEFINED)
+      set(${_vix_option} "${_VIX_IO_${_vix_option}_NORMAL_VALUE}")
+    else()
+      unset(${_vix_option})
+    endif()
+    if (_VIX_IO_${_vix_option}_CACHE_DEFINED)
+      set(${_vix_option} "${_VIX_IO_${_vix_option}_CACHE_VALUE}" CACHE ${_VIX_IO_${_vix_option}_CACHE_TYPE} "" FORCE)
+    else()
+      unset(${_vix_option} CACHE)
+    endif()
+  endforeach()
+endmacro()
+
 # --------------------------------------------------------------------
 # Dependency resolver
 # --------------------------------------------------------------------
@@ -191,17 +236,13 @@ function(vix_io_prepare_utils_third_party)
 
   if (NOT TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)
     message(STATUS "[io] Fetching spdlog for vix::utils")
-    set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
-    set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
-    set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-    set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-    set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
-    set(SPDLOG_INSTALL ON CACHE BOOL "" FORCE)
+    vix_io_push_spdlog_fetch_options()
     FetchContent_Declare(vix_spdlog
       GIT_REPOSITORY https://github.com/gabime/spdlog.git
       GIT_TAG        v1.14.1
     )
     FetchContent_MakeAvailable(vix_spdlog)
+    vix_io_pop_spdlog_fetch_options()
   endif()
 endfunction()
 
