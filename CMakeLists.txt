@@ -352,6 +352,10 @@ else()
   add_library(vix_io INTERFACE)
   add_library(vix::io ALIAS vix_io)
 
+  set_target_properties(vix_io PROPERTIES
+    EXPORT_NAME io
+  )
+
   target_compile_features(vix_io INTERFACE cxx_std_20)
 
   target_include_directories(vix_io INTERFACE
