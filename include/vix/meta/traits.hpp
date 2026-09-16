@@ -44,13 +44,12 @@
 #define VIX_HAS_EXPECTED 0
 #endif
 
+#include <vix/print/Formatter.hpp>
+
 namespace vix
 {
   // Forward declarations for extension-point detection.
   struct inspect_context;
-
-  template <typename T, typename = void>
-  struct formatter;
 
   template <typename T, typename = void>
   struct inspector;
