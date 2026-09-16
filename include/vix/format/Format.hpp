@@ -86,22 +86,11 @@ namespace vix
     [[nodiscard]] inline std::string format_arg_to_string(const T &value)
     {
       std::ostringstream oss;
-
-      auto &cfg = vix::default_config();
-      const bool old_raw_strings = cfg.raw_strings;
+      print_config cfg = default_config();
+      cfg.out = &oss;
+      cfg.end.clear();
       cfg.raw_strings = false;
-
-      try
-      {
-        vix::detail::write(oss, value);
-      }
-      catch (...)
-      {
-        cfg.raw_strings = old_raw_strings;
-        throw;
-      }
-
-      cfg.raw_strings = old_raw_strings;
+      vix::write_to(oss, value, cfg);
       return oss.str();
     }
 

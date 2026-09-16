@@ -796,8 +796,9 @@ namespace vix
     {
       using U = std::remove_cvref_t<T>;
 
-      if constexpr (vix::traits::has_formatter_v<U> ||
-                    vix::traits::has_vix_format_v<U>)
+      if constexpr (vix::detail::has_formatter_v<U> ||
+                    vix::detail::context_adl_formattable<U> ||
+                    vix::detail::legacy_adl_formattable<U>)
       {
         std::ostringstream stream;
 
@@ -811,8 +812,7 @@ namespace vix
         print_config_value.compact = true;
         print_config_value.raw_strings = true;
 
-        scoped_config guard{print_config_value};
-        vix::write_to(stream, value);
+        vix::write_to(stream, value, print_config_value);
 
         std::string rendered = stream.str();
         truncate_record_(rendered, limits.max_record_size);
@@ -835,7 +835,7 @@ namespace vix
       // A formatter<T> or ADL vix_format hook belongs to the print engine.
       // If inspect cannot render any nested part, retry the entire value using
       // print so existing formatter extensions remain compatible.
-      if (rendered.find("<unprintable:") != std::string::npos)
+      if (rendered.find("<unprintable") != std::string::npos)
       {
         std::ostringstream stream;
 
@@ -849,8 +849,7 @@ namespace vix
         print_config_value.compact = true;
         print_config_value.raw_strings = true;
 
-        scoped_config guard{print_config_value};
-        vix::write_to(stream, value);
+        vix::write_to(stream, value, print_config_value);
         rendered = stream.str();
       }
 
