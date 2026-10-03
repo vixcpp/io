@@ -28,8 +28,8 @@
 #
 # Public Dependencies:
 #   - vix::error
+#   - vix::env
 #   - vix::log
-#   - vix::utils
 #
 # Installation/Export:
 #   - Umbrella build exports into: VixTargets
@@ -66,9 +66,8 @@ endif()
 # Options
 # --------------------------------------------------------------------
 option(VIX_IO_FETCH_ERROR "Auto-fetch vix::error if missing" ON)
-option(VIX_IO_FETCH_UTILS "Auto-fetch vix::utils if missing" ON)
+option(VIX_IO_FETCH_ENV "Auto-fetch vix::env if missing" ON)
 option(VIX_IO_FETCH_LOG "Auto-fetch vix::log if missing" ON)
-option(VIX_IO_FETCH_THIRD_PARTY "Auto-fetch third-party dependencies needed by fetched Vix modules" ON)
 option(VIX_IO_BUILD_TESTS "Build io module tests" OFF)
 option(VIX_IO_BUILD_EXAMPLES "Build io module examples" OFF)
 
@@ -82,9 +81,8 @@ set(VIX_IO_HAS_LOCAL_DEPENDENCIES OFF)
 # --------------------------------------------------------------------
 if (DEFINED VIX_UMBRELLA_BUILD AND VIX_UMBRELLA_BUILD)
   set(VIX_IO_FETCH_ERROR OFF CACHE BOOL "Auto-fetch vix::error if missing" FORCE)
-  set(VIX_IO_FETCH_UTILS OFF CACHE BOOL "Auto-fetch vix::utils if missing" FORCE)
+  set(VIX_IO_FETCH_ENV OFF CACHE BOOL "Auto-fetch vix::env if missing" FORCE)
   set(VIX_IO_FETCH_LOG OFF CACHE BOOL "Auto-fetch vix::log if missing" FORCE)
-  set(VIX_IO_FETCH_THIRD_PARTY OFF CACHE BOOL "Auto-fetch third-party dependencies needed by fetched Vix modules" FORCE)
 endif()
 
 # --------------------------------------------------------------------
@@ -93,52 +91,6 @@ endif()
 file(GLOB_RECURSE IO_SOURCES CONFIGURE_DEPENDS
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
-
-# Keep Vix-owned FetchContent options from changing a later consumer spdlog.
-macro(vix_io_push_spdlog_fetch_options)
-  foreach(_vix_option IN ITEMS SPDLOG_FMT_EXTERNAL SPDLOG_BUILD_EXAMPLE SPDLOG_BUILD_EXAMPLES SPDLOG_BUILD_TESTS SPDLOG_BUILD_BENCH SPDLOG_INSTALL)
-    if (DEFINED ${_vix_option})
-      set(_VIX_IO_${_vix_option}_NORMAL_DEFINED TRUE)
-      set(_VIX_IO_${_vix_option}_NORMAL_VALUE "${${_vix_option}}")
-    else()
-      set(_VIX_IO_${_vix_option}_NORMAL_DEFINED FALSE)
-    endif()
-    if (DEFINED CACHE{${_vix_option}})
-      get_property(_VIX_IO_${_vix_option}_CACHE_VALUE CACHE ${_vix_option} PROPERTY VALUE)
-      get_property(_VIX_IO_${_vix_option}_CACHE_TYPE CACHE ${_vix_option} PROPERTY TYPE)
-      set(_VIX_IO_${_vix_option}_CACHE_DEFINED TRUE)
-    else()
-      set(_VIX_IO_${_vix_option}_CACHE_DEFINED FALSE)
-    endif()
-  endforeach()
-  set(SPDLOG_FMT_EXTERNAL ON)
-  set(SPDLOG_BUILD_EXAMPLE OFF)
-  set(SPDLOG_BUILD_EXAMPLES OFF)
-  set(SPDLOG_BUILD_TESTS OFF)
-  set(SPDLOG_BUILD_BENCH OFF)
-  set(SPDLOG_INSTALL ON)
-  set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
-  set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
-  set(SPDLOG_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-  set(SPDLOG_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-  set(SPDLOG_BUILD_BENCH OFF CACHE BOOL "" FORCE)
-  set(SPDLOG_INSTALL ON CACHE BOOL "" FORCE)
-endmacro()
-
-macro(vix_io_pop_spdlog_fetch_options)
-  foreach(_vix_option IN ITEMS SPDLOG_FMT_EXTERNAL SPDLOG_BUILD_EXAMPLE SPDLOG_BUILD_EXAMPLES SPDLOG_BUILD_TESTS SPDLOG_BUILD_BENCH SPDLOG_INSTALL)
-    if (_VIX_IO_${_vix_option}_NORMAL_DEFINED)
-      set(${_vix_option} "${_VIX_IO_${_vix_option}_NORMAL_VALUE}")
-    else()
-      unset(${_vix_option})
-    endif()
-    if (_VIX_IO_${_vix_option}_CACHE_DEFINED)
-      set(${_vix_option} "${_VIX_IO_${_vix_option}_CACHE_VALUE}" CACHE ${_VIX_IO_${_vix_option}_CACHE_TYPE} "" FORCE)
-    else()
-      unset(${_vix_option} CACHE)
-    endif()
-  endforeach()
-endmacro()
 
 # --------------------------------------------------------------------
 # Dependency resolver
@@ -202,51 +154,6 @@ function(vix_io_resolve_dependency module_name target_name package_name fetch_op
   endif()
 endfunction()
 
-function(vix_io_prepare_utils_third_party)
-  if (TARGET spdlog::spdlog_header_only OR TARGET spdlog::spdlog)
-    if (TARGET fmt::fmt-header-only OR TARGET fmt::fmt)
-      return()
-    endif()
-  endif()
-
-  find_package(fmt CONFIG QUIET)
-  find_package(spdlog CONFIG QUIET)
-
-  if ((TARGET spdlog::spdlog_header_only OR TARGET spdlog::spdlog) AND
-      (TARGET fmt::fmt-header-only OR TARGET fmt::fmt))
-    return()
-  endif()
-
-  if (NOT VIX_IO_FETCH_THIRD_PARTY)
-    return()
-  endif()
-
-  include(FetchContent)
-
-  if (NOT TARGET fmt::fmt-header-only AND NOT TARGET fmt::fmt)
-    message(STATUS "[io] Fetching fmt for vix::utils")
-    set(FMT_DOC OFF CACHE BOOL "" FORCE)
-    set(FMT_TEST OFF CACHE BOOL "" FORCE)
-    set(FMT_INSTALL ON CACHE BOOL "" FORCE)
-    FetchContent_Declare(vix_fmt
-      GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-      GIT_TAG        10.2.1
-    )
-    FetchContent_MakeAvailable(vix_fmt)
-  endif()
-
-  if (NOT TARGET spdlog::spdlog_header_only AND NOT TARGET spdlog::spdlog)
-    message(STATUS "[io] Fetching spdlog for vix::utils")
-    vix_io_push_spdlog_fetch_options()
-    FetchContent_Declare(vix_spdlog
-      GIT_REPOSITORY https://github.com/gabime/spdlog.git
-      GIT_TAG        v1.14.1
-    )
-    FetchContent_MakeAvailable(vix_spdlog)
-    vix_io_pop_spdlog_fetch_options()
-  endif()
-endfunction()
-
 # --------------------------------------------------------------------
 # Required dependencies
 # --------------------------------------------------------------------
@@ -261,18 +168,16 @@ vix_io_resolve_dependency(
 
 set(VIX_ERROR_TARGET vix::error)
 
-vix_io_prepare_utils_third_party()
-
 vix_io_resolve_dependency(
-  utils
-  vix::utils
-  vix_utils
-  VIX_IO_FETCH_UTILS
-  https://github.com/vixcpp/utils.git
-  v1.14.7
+  env
+  vix::env
+  vix_env
+  VIX_IO_FETCH_ENV
+  https://github.com/vixcpp/env.git
+  v0.1.0
 )
 
-set(VIX_UTILS_TARGET vix::utils)
+set(VIX_ENV_TARGET vix::env)
 
 vix_io_resolve_dependency(
   log
@@ -305,10 +210,10 @@ if (IO_SOURCES)
   target_link_libraries(vix_io
     PUBLIC
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
-      $<BUILD_INTERFACE:${VIX_UTILS_TARGET}>
+      $<BUILD_INTERFACE:${VIX_ENV_TARGET}>
       $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
-      $<INSTALL_INTERFACE:vix::utils>
+      $<INSTALL_INTERFACE:vix::env>
       $<INSTALL_INTERFACE:vix::log>
   )
 
@@ -366,10 +271,10 @@ else()
   target_link_libraries(vix_io
     INTERFACE
       $<BUILD_INTERFACE:${VIX_ERROR_TARGET}>
-      $<BUILD_INTERFACE:${VIX_UTILS_TARGET}>
+      $<BUILD_INTERFACE:${VIX_ENV_TARGET}>
       $<BUILD_INTERFACE:${VIX_LOG_TARGET}>
       $<INSTALL_INTERFACE:vix::error>
-      $<INSTALL_INTERFACE:vix::utils>
+      $<INSTALL_INTERFACE:vix::env>
       $<INSTALL_INTERFACE:vix::log>
   )
 
@@ -465,7 +370,7 @@ endif()
 
 message(STATUS "Export set:         ${VIX_IO_EXPORT_SET}")
 message(STATUS "Error target:       ${VIX_ERROR_TARGET}")
-message(STATUS "Utils target:       ${VIX_UTILS_TARGET}")
+message(STATUS "Env target:         ${VIX_ENV_TARGET}")
 message(STATUS "Log target:         ${VIX_LOG_TARGET}")
 message(STATUS "Local deps:         ${VIX_IO_HAS_LOCAL_DEPENDENCIES}")
 message(STATUS "Tests:              ${VIX_IO_BUILD_TESTS}")

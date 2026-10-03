@@ -965,6 +965,21 @@ namespace
     for (const auto &name : names)
       EnvGuard::unset(name);
 
+    vix::Console missing;
+    require(missing.level() == Level::Info,
+            "missing console level should retain the default.");
+    require(!missing.rate_limit().enabled,
+            "missing rate limit should retain the default.");
+
+    for (const auto &name : names)
+      EnvGuard::set(name, "");
+
+    vix::Console empty;
+    require(empty.level() == Level::Info,
+            "empty console level should retain the default.");
+    require(!empty.rate_limit().enabled,
+            "empty rate limit should retain the default.");
+
     EnvGuard::set("VIX_CONSOLE_LEVEL", "debug");
     EnvGuard::set("VIX_CONSOLE_RATE_LIMIT", "12");
     EnvGuard::set("VIX_CONSOLE_MAX_DEPTH", "3");
