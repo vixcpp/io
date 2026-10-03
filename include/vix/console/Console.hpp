@@ -39,7 +39,7 @@
 #include <vix/inspect.hpp>
 #include <vix/log/Log.hpp>
 #include <vix/print.hpp>
-#include <vix/utils/Env.hpp>
+#include <vix/env/GetOr.hpp>
 
 namespace vix
 {
@@ -1263,17 +1263,17 @@ namespace vix
       return true;
     }
 
-    [[nodiscard]] static std::size_t parse_size_env_(
-        const char *name,
+    [[nodiscard]] static std::size_t parse_size_value_(
+        const std::string &raw,
         std::size_t fallback) noexcept
     {
-      const char *raw = vix::utils::vix_getenv(name);
-      if (raw == nullptr || *raw == '\0')
+      if (raw.empty())
         return fallback;
 
       char *end = nullptr;
-      const unsigned long long value = std::strtoull(raw, &end, 10);
-      if (end == raw || (end != nullptr && *end != '\0') || value == 0)
+      const char *begin = raw.c_str();
+      const unsigned long long value = std::strtoull(begin, &end, 10);
+      if (end == begin || (end != nullptr && *end != '\0') || value == 0)
         return fallback;
 
       if (value > static_cast<unsigned long long>(
@@ -1291,32 +1291,34 @@ namespace vix
             from_log_level_(vix::log::level()),
             std::memory_order_relaxed);
 
-        if (const char *raw = vix::utils::vix_getenv("VIX_LOG_FORMAT");
-            raw != nullptr && *raw != '\0')
+        const std::string log_format = vix::env::get_or("VIX_LOG_FORMAT");
+        if (!log_format.empty())
         {
           format_.store(
-              vix::log::parse_format(raw),
+              vix::log::parse_format(log_format),
               std::memory_order_relaxed);
         }
 
         Limits configured_limits = limits();
         configured_limits.max_depth = static_cast<int>(std::min<std::size_t>(
-            parse_size_env_(
-                "VIX_CONSOLE_MAX_DEPTH",
+            parse_size_value_(
+                vix::env::get_or("VIX_CONSOLE_MAX_DEPTH"),
                 static_cast<std::size_t>(configured_limits.max_depth)),
             static_cast<std::size_t>(std::numeric_limits<int>::max())));
-        configured_limits.max_items = parse_size_env_(
-            "VIX_CONSOLE_MAX_ITEMS",
+        configured_limits.max_items = parse_size_value_(
+            vix::env::get_or("VIX_CONSOLE_MAX_ITEMS"),
             configured_limits.max_items);
-        configured_limits.max_string_length = parse_size_env_(
-            "VIX_CONSOLE_MAX_STRING_LENGTH",
+        configured_limits.max_string_length = parse_size_value_(
+            vix::env::get_or("VIX_CONSOLE_MAX_STRING_LENGTH"),
             configured_limits.max_string_length);
-        configured_limits.max_record_size = parse_size_env_(
-            "VIX_CONSOLE_MAX_RECORD_SIZE",
+        configured_limits.max_record_size = parse_size_value_(
+            vix::env::get_or("VIX_CONSOLE_MAX_RECORD_SIZE"),
             configured_limits.max_record_size);
         set_limits(configured_limits);
 
-        const std::size_t rate = parse_size_env_("VIX_CONSOLE_RATE_LIMIT", 0);
+        const std::size_t rate = parse_size_value_(
+            vix::env::get_or("VIX_CONSOLE_RATE_LIMIT"),
+            0);
         if (rate > 0)
         {
           set_rate_limit(RateLimit{
@@ -1326,10 +1328,10 @@ namespace vix
                   std::numeric_limits<std::uint32_t>::max()))});
         }
 
-        if (const char *raw = vix::utils::vix_getenv("VIX_CONSOLE_LEVEL");
-            raw != nullptr && *raw != '\0')
+        const std::string console_level = vix::env::get_or("VIX_CONSOLE_LEVEL");
+        if (!console_level.empty())
         {
-          set_level(parse_level(raw));
+          set_level(parse_level(console_level));
         }
       }
       catch (...)
